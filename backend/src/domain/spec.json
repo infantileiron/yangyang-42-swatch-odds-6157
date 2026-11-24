@@ -1,0 +1,88 @@
+{
+  "organization": "茶影植物染小试间（12 人）",
+  "tagline": "结合三项独立点检标记计算色样返染风险，逐项展示风险赔率来自哪里。",
+  "source": "《小试色卡202611.csv》结合返染签认备注",
+  "record_name": "小试色样卡",
+  "algorithm": "Bernoulli 朴素贝叶斯与批外验证",
+  "formula": "仅用已闭合且未被留出的批次计算先验和三项二值似然。对每项标记加平滑，后验赔率等于先验赔率乘似然比；在末批记录按固定门槛验错。",
+  "decision_prompt": "本批先返看哪些色样，推动风险上升最明显的是哪项点检？",
+  "fields": [
+    {
+      "key": "ticket",
+      "label": "色样号",
+      "type": "text",
+      "example": "CY-P05"
+    },
+    {
+      "key": "lot",
+      "label": "染批号",
+      "type": "text",
+      "example": "D07"
+    },
+    {
+      "key": "day",
+      "label": "点检日",
+      "type": "date",
+      "example": "2026-11-23"
+    },
+    {
+      "key": "shade",
+      "label": "干湿色差越线",
+      "type": "choice",
+      "example": "是",
+      "choices": [
+        "是",
+        "否"
+      ]
+    },
+    {
+      "key": "ring",
+      "label": "样边水圈",
+      "type": "choice",
+      "example": "否",
+      "choices": [
+        "是",
+        "否"
+      ]
+    },
+    {
+      "key": "bleed",
+      "label": "白布沾色",
+      "type": "choice",
+      "example": "是",
+      "choices": [
+        "是",
+        "否"
+      ]
+    },
+    {
+      "key": "outcome",
+      "label": "返染签认",
+      "type": "choice",
+      "example": "待判",
+      "choices": [
+        "返染",
+        "留样",
+        "待判"
+      ]
+    }
+  ],
+  "parameters": [
+    {
+      "key": "risk",
+      "label": "列入抽查概率门槛（%）",
+      "type": "number",
+      "min": 1,
+      "max": 99,
+      "default": 60
+    },
+    {
+      "key": "alpha",
+      "label": "平滑伪计数",
+      "type": "number",
+      "min": 0.1,
+      "max": 20,
+      "default": 1
+    }
+  ]
+}

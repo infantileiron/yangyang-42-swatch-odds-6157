@@ -1,0 +1,14 @@
+{
+  "slug": "yangyang-42-swatch-odds",
+  "title": "茶影染房·色样返染风险甄别",
+  "direction": "概率分类与赔率解释",
+  "layout": "editorial",
+  "theme": "陈茶黄染卡目录",
+  "recipient": "色样返染质检组",
+  "work_modules": [
+    "色样小试登记",
+    "跨批风险验证",
+    "抽检队列赔率分解"
+  ],
+  "follow_latest": false
+}
