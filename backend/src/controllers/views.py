@@ -20,12 +20,37 @@ def observation_view(item):
     return {'id': item.id, 'data': item.payload, 'created_at': timestamp(item.created_at)}
 
 
+def signoff_view(item):
+    return {'id': item.id, 'ticket': item.ticket, 'version': item.version, 'outcome': item.outcome,
+            'note': item.note, 'actor': item.actor, 'received_at': timestamp(item.received_at)}
+
+
+def queue_row_view(item):
+    return {'ticket': item.ticket, 'lot': item.lot, 'day': item.day, 'status': item.status,
+            'error': item.error, 'result': item.payload}
+
+
+def queue_view(item, *, include_result=False):
+    view = {'id': item.id, 'revision': item.revision, 'status': item.status,
+            'parameters': item.parameters, 'total': item.total, 'computed': item.computed,
+            'changed_tickets': item.changed_tickets, 'held_tickets': item.held_tickets,
+            'reason': item.reason, 'created_at': timestamp(item.created_at),
+            'ready_at': timestamp(item.ready_at), 'activated_at': timestamp(item.activated_at)}
+    if item.status in ('queued', 'computing'):
+        view['progress'] = item.computed / item.total if item.total else 0
+    if include_result:
+        view['result'] = item.result
+    return view
+
+
 def schedule_view(item):
-    return {'id': item.id, 'run_id': item.run_id, 'recipient': item.recipient,
-            'interval_minutes': item.interval_minutes, 'next_at': timestamp(item.next_at), 'active': item.active}
+    return {'id': item.id, 'mode': item.mode, 'run_id': item.run_id, 'recipient': item.recipient,
+            'interval_minutes': item.interval_minutes, 'next_at': timestamp(item.next_at),
+            'active': item.active}
 
 
-def delivery_view(delivery, schedule):
+def delivery_view(delivery, schedule, queue=None):
     return {'id': delivery.id, 'schedule_id': schedule.id, 'recipient': schedule.recipient,
-            'run_id': schedule.run_id, 'at': timestamp(delivery.delivered_at),
-            'scheduled_at': timestamp(delivery.scheduled_at)}
+            'mode': schedule.mode, 'run_id': schedule.run_id, 'queue_id': delivery.queue_id,
+            'revision': queue.revision if queue else None,
+            'at': timestamp(delivery.delivered_at), 'scheduled_at': timestamp(delivery.scheduled_at)}

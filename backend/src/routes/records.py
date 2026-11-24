@@ -11,6 +11,8 @@ from src.models.workflow import Observation
 from src.services.auth import current_user, roles
 from src.services.errors import BusinessError
 from src.services.observations import add_observations, clean_observation, parse_csv
+from src.services.broker import wake_worker
+from src.services.queues import request_recompute_if_stale
 from src.utils.formatting import csv_text
 
 router = APIRouter(prefix='/api')
@@ -37,7 +39,10 @@ def create(payload: dict, user=Depends(editor)):
         items = add_observations(db, [row], user['sub'], 'observation.created')
         if not items:
             raise BusinessError('相同观测已存在，请核对记录', 409)
-        return observation_view(items[0])
+        request_recompute_if_stale(db, reason='新观测影响队列', actor=user['sub'])
+        view = observation_view(items[0])
+    wake_worker()
+    return view
 
 
 @router.get('/observations/template')
@@ -52,6 +57,7 @@ def import_payload(payload, actor):
     rows = parse_csv(payload)
     with Session.begin() as db:
         items = add_observations(db, rows, actor, 'observation.imported')
+        request_recompute_if_stale(db, reason='导入观测影响队列', actor=actor)
         return {'added': len(items), 'skipped': len(rows) - len(items)}
 
 
@@ -62,4 +68,6 @@ async def import_csv(request: Request, user=Depends(editor)):
         if len(raw) + len(chunk) > 512 * 1024:
             raise BusinessError('CSV 文件上限 512 KB', 413)
         raw.extend(chunk)
-    return await run_in_threadpool(import_payload, bytes(raw), user['sub'])
+    report = await run_in_threadpool(import_payload, bytes(raw), user['sub'])
+    wake_worker()
+    return report

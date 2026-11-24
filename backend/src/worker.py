@@ -7,6 +7,7 @@ from sqlalchemy import text
 from src.models.base import Session
 from src.services.broker import redis
 from src.services.delivery import dispatch_pending
+from src.services.queues import activate_ready, queue_pending
 from src.services.runs import run_pending
 
 logging.basicConfig(level=logging.INFO)
@@ -20,9 +21,13 @@ def main():
             with Session.begin() as db:
                 ran = run_pending(db)
             with Session.begin() as db:
+                computed = queue_pending(db)
+            with Session.begin() as db:
+                activated = activate_ready(db)
+            with Session.begin() as db:
                 dispatched = dispatch_pending(db)
             redis.set(HEARTBEAT, 'yes', ex=12)
-            if not ran and not dispatched:
+            if not (ran or computed or activated or dispatched):
                 redis.blpop('desk:wake', timeout=1)
         except Exception:
             logger.exception('Worker could not finish its cycle')

@@ -6,7 +6,7 @@ from src.config.runtime import WORKDIR
 from src.constants.enums import Role
 from src.controllers.views import delivery_view, schedule_view
 from src.models.base import Session
-from src.models.workflow import AuditEvent, Delivery, Schedule
+from src.models.workflow import AuditEvent, Delivery, SamplingQueue, Schedule
 from src.schemas.requests import ScheduleInput
 from src.services.auth import current_user, roles
 from src.services.broker import wake_worker
@@ -41,8 +41,11 @@ def stop(schedule_id: int, user=Depends(supervisor)):
 @router.get('/inbox')
 def inbox(user=Depends(current_user)):
     with Session() as db:
-        query = select(Delivery, Schedule).join(Schedule, Schedule.id == Delivery.schedule_id)
-        return [delivery_view(*pair) for pair in db.execute(query.order_by(Delivery.id.desc()).limit(100))]
+        query = (select(Delivery, Schedule, SamplingQueue)
+                 .join(Schedule, Schedule.id == Delivery.schedule_id)
+                 .outerjoin(SamplingQueue, SamplingQueue.id == Delivery.queue_id))
+        return [delivery_view(delivery, schedule, queue)
+                for delivery, schedule, queue in db.execute(query.order_by(Delivery.id.desc()).limit(100))]
 
 
 @router.get('/inbox/{delivery_id}/file')

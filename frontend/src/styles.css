@@ -133,3 +133,14 @@ form .primary { margin-top:3px; }
   .count { min-width:0; }.table-wrap th, .table-wrap td { padding:7px 11px; }
 }
 @media (prefers-reduced-motion:reduce) { *, *::before, *::after { animation:none !important; } }
+.status-queued { color:oklch(.40 .07 250); background:oklch(.93 .03 250); }
+.banner { margin:0 0 18px; padding:12px 17px; border-inline-start:4px solid var(--accent); background:var(--wash); font-size:.86rem; }
+.queue-card .queue-head { display:flex; justify-content:space-between; align-items:center; gap:10px; }
+.progress { position:relative; margin:12px 0 6px; height:8px; background:var(--wash); border:1px solid var(--line); }
+.progress i { display:block; position:absolute; inset:0 auto 0 0; width:var(--width); background:var(--accent); transition:width 240ms ease; }
+.progress span { display:block; margin-top:4px; font-size:.76rem; color:var(--quiet); }
+.tag { display:inline-block; padding:1px 7px; font-size:.79rem; border:1px solid var(--line); }
+.tag-positive { color:oklch(.38 .13 28); background:oklch(.91 .035 28); }
+.tag-negative { color:oklch(.34 .092 150); background:oklch(.92 .045 153); }
+.tag-pending { color:var(--quiet); background:var(--wash); }
+.muted { color:var(--quiet); }

@@ -12,9 +12,10 @@ from src.config.runtime import SEED_DEMO
 from src.middlewares.headers import response_headers
 from src.middlewares.trace import trace_request
 from src.models.base import Base, Session, engine
-from src.routes import analysis, records, reports, session
+from src.routes import analysis, records, reports, session, signoffs
 from src.services.broker import redis
 from src.services.errors import BusinessError
+from src.services.queues import ensure_queue
 
 logger = logging.getLogger('uvicorn.error')
 
@@ -27,13 +28,18 @@ async def lifespan(_app):
             logger.info('demo row counts %s', seed_data())
         except Exception:
             logger.exception('demo seed failed')
+    try:
+        with Session.begin() as db:
+            ensure_queue(db)
+    except Exception:
+        logger.exception('queue bootstrap failed')
     yield
 
 
 app = FastAPI(title=SPEC['title'], lifespan=lifespan)
 app.middleware('http')(trace_request)
 app.middleware('http')(response_headers)
-for module in (session, records, analysis, reports):
+for module in (session, records, analysis, reports, signoffs):
     app.include_router(module.router)
 
 

@@ -90,6 +90,74 @@ def _fit(rows, alpha):
     return prior, proportions
 
 
+def _score(row, prior, proportions, threshold):
+    factors = {}
+    for key, _ in FIELDS:
+        hit = proportions[POSITIVE][key]
+        miss = proportions[NEGATIVE][key]
+        factors[key] = hit / miss if row[key] == "是" else (1 - hit) / (1 - miss)
+    log_odds = log(prior) + sum(log(value) for value in factors.values())
+    chance = 100 / (1 + exp(-log_odds))
+    best, label = max(FIELDS, key=lambda field: factors[field[0]])
+    return {key: row[key] for key in ("ticket", "lot", "outcome")} | {
+        "risk": _shown(chance), "decision": "列入复检" if chance >= threshold else "常规抽查",
+        "prior": _shown(prior, 3), "signal": label if factors[best] > 1 else "三项均未推高风险",
+    } | {key: _shown(factor, 3) for key, factor in factors.items()}
+
+
+QUEUE_COLUMNS = (*COLUMNS, ("training_sample", "训练色卡"))
+QUEUE_HEAD = "色样返染抽查队列"
+
+
+def _prepare_queue(rows, parameters):
+    rows, options = _inputs(rows, parameters)
+    known = [row for row in rows if row["outcome"] != PENDING]
+    if len({row["lot"] for row in known}) < 2:
+        raise ValueError("至少需要两个已签认的染批")
+    return rows, options
+
+
+def queue_row(rows, parameters, ticket):
+    """计算单张待判色卡，训练样本排除它所在的染批。"""
+    rows, options = _prepare_queue(rows, parameters)
+    target = next((row for row in rows if row["ticket"] == ticket and row["outcome"] == PENDING), None)
+    if target is None:
+        raise ValueError(f"色卡 {ticket} 不在待判队列")
+    train = [row for row in rows if row["outcome"] != PENDING and row["lot"] != target["lot"]]
+    prior, proportions = _fit(train, options["alpha"])
+    return _score(target, prior, proportions, options["risk"]) | {"training_sample": len(train)}
+
+
+def queue_preamble(rows, parameters):
+    """校验整份快照并列出待判色卡，供队列在逐卡计算前快速失败。"""
+    rows, _ = _prepare_queue(rows, parameters)
+    return [row["ticket"] for row in rows if row["outcome"] == PENDING]
+
+
+def queue_output(items, failures=0):
+    """把逐卡结果拼成可展示、可导出的队列输出。items 需带 day/ticket/payload。"""
+    rows = [item for item in items if item["payload"] is not None]
+    rows.sort(key=lambda item: (item["day"], item["ticket"]))
+    flagged = sum(item["payload"]["decision"] == "列入复检" for item in rows)
+    lots = sorted({item["lot"] for item in rows})
+    summary = f"{len(rows)} 张待判色卡分布 {len(lots)} 个染批；逐卡训练排除所在染批，其中 {flagged} 张达到复检门槛。"
+    if failures:
+        summary += f" 另有 {failures} 张未能计算。"
+    return {
+        "headline": QUEUE_HEAD,
+        "summary": summary,
+        "columns": [{"key": key, "label": label} for key, label in QUEUE_COLUMNS],
+        "rows": [item["payload"] for item in rows],
+        "metrics": [
+            {"label": "待判色卡", "value": len(rows), "unit": "张"},
+            {"label": "列入复检", "value": flagged, "unit": "张"},
+            {"label": "涉及染批", "value": len(lots), "unit": "批"},
+        ],
+        "chart": {"label": "各待判色卡返染概率", "unit": "%",
+                  "points": [{"label": item["ticket"], "value": item["payload"]["risk"]} for item in rows]},
+    }
+
+
 def analyze(rows, parameters):
     rows, options = _inputs(rows, parameters)
     known = [row for row in rows if row["outcome"] != PENDING]
@@ -102,18 +170,7 @@ def analyze(rows, parameters):
     prior, proportions = _fit(train, options["alpha"])
 
     def score(row):
-        factors = {}
-        for key, _ in FIELDS:
-            hit = proportions[POSITIVE][key]
-            miss = proportions[NEGATIVE][key]
-            factors[key] = hit / miss if row[key] == "是" else (1 - hit) / (1 - miss)
-        log_odds = log(prior) + sum(log(value) for value in factors.values())
-        chance = 100 / (1 + exp(-log_odds))
-        best, label = max(FIELDS, key=lambda field: factors[field[0]])
-        return {key: row[key] for key in ("ticket", "lot", "outcome")} | {
-            "risk": _shown(chance), "decision": "列入复检" if chance >= options["risk"] else "常规抽查",
-            "prior": _shown(prior, 3), "signal": label if factors[best] > 1 else "三项均未推高风险",
-        } | {key: _shown(factor, 3) for key, factor in factors.items()}
+        return _score(row, prior, proportions, options["risk"])
 
     pending = [score(row) for row in rows if row["outcome"] == PENDING]
     evaluation = [score(row) for row in checked]

@@ -5,12 +5,13 @@ import { loginPage, wireLogin } from './pages/login.js';
 import { observationPage, wireObservations } from './pages/observations.js';
 import { reportPage, wireReports } from './pages/reports.js';
 import { resultPage, wireResult } from './pages/result.js';
+import { signoffPage, wireSignoffs } from './pages/signoffs.js';
 import { route } from './router/hash.js';
 import { store } from './stores/session.js';
 import { esc } from './utils/html.js';
 
 const root = document.getElementById('app');
-const pages = {observations:observationPage,analysis:analysisPage,result:resultPage,reports:reportPage};
+const pages = {observations:observationPage,analysis:analysisPage,result:resultPage,signoffs:signoffPage,reports:reportPage};
 let navigationTick = 0;
 
 async function render() {
@@ -38,6 +39,7 @@ async function render() {
     if (current.page === 'observations') wireObservations(root, spec,render);
     if (current.page === 'analysis') wireAnalysis(root,spec);
     if (current.page === 'result') wireResult(root,render);
+    if (current.page === 'signoffs') wireSignoffs(root,render);
     if (current.page === 'reports') wireReports(root,render);
   } catch (err) {
     if (tick !== navigationTick) return;
